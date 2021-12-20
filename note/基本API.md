@@ -1,0 +1,156 @@
+# 基本API
+
+# ClassReader
+
+ASM中主要使用的**访问者** 模式，将数据结构和对数据的操作抽离，`ClassReader` 可以根据类名、二进制流创建一个实例，其主要作用是完成对`.class` 文件的解析，那么`ClassReader` 可以认为是保存了字节码的数据结构的一个类，**在访问者模式中充当受访者** 。
+
+```java
+ClassReader cr = new ClassReader("Person");
+System.out.println(cr.getAccess());
+System.out.println(cr.getClassName());
+System.out.println(cr.getSuperName());
+```
+
+
+⚠️：值得注意的是，字节码的解析并不是在构造方法中完成的，而是在调用 `getXXX` 方法的时候动态完成的。
+
+`ClassReader` 的 `accept` 方法的签名如下：
+
+```java
+accept(jdk.internal.org.objectweb.asm.ClassVisitor, int);
+accept(jdk.internal.org.objectweb.asm.ClassVisitor, jdk.internal.org.objectweb.asm.Attribute[], int);
+```
+
+
+重点关注第一个参数 `ClassVisitor` ，在 `accpet` 方法中首先会解析出字节码的所有属性，然后会以如下顺序调用传入的 `ClassVisitor` 的方法（`[]`表示调用一次，`()`表示调用多次）：
+
+```纯文本
+[visit]
+[visitSource | visitSource | visitOuterClass]
+(visitAnnotation | visitTypeAnnotation | visitAttribute)*
+(visitInnerClass | visitField | visitMethod)*
+[visitEnd]
+```
+
+
+# ClassVisitor
+
+`ClassVisitor` 是一个抽象类，但是这个抽象类却没有抽象方法，这样做的意义是：**类中的方法已经定义好了，但是实例出来却没有意义，因为实例化出来的对象无法满足需求，需要子类继承并加以扩展才能满足要求。** 这里的 `ClassVisitor` 更像是一个接口。
+
+为什么会说“实例化出来的对象无法满足需求呢”？这与`ClassVisitor`类的方法逻辑有关系，其内部有一个 `ClassVisitor`类型的成员变量 `cv` ，它的核心方法 `visitXXX` 方法都会委派给 `cv` 这个成员变量，结构都类似如下：
+
+```java
+public void visitXXX(parms...) {
+    if (cv != null) {
+        cv.visitXXX(parms...);
+    }
+}
+```
+
+
+所有如果没有子类去继承 `ClassVisitor` 并扩展其功能，那么这些 `visitXXX` 方法并没有什么意义。
+
+# ClassWriter
+
+`ClassWriter` 继承了 `ClassVisitor` ，说明它扩展了其父类的一些功能，在访问者模式中充当拜访者的角色。
+
+简单来说，`ClassWriter` 的作用就是用于生成Java字节码，一般是以`[]byte` 类型返回（动态）生成的字节码。
+
+```Java
+// Simple Demo
+
+ClassWriter cw = new ClassWriter(0);
+// Opcodes版本 | 修饰符 | 全类名 | 泛型 ｜ 继承的父类 ｜ 实现的接口
+cw.visit(Opcodes.ASM5, Opcodes.ACC_PUBLIC + Opcodes.ACC_INTERFACE, "Foo", null, "java/lang/Object", null);
+// visitFiled 生成成员变量
+// field修饰符 | 名称 ｜ 类型 ｜ 泛型 | 常量值
+cw.visitField(Opcodes.ACC_PUBLIC + Opcodes.ACC_FINAL + Opcodes.ACC_STATIC, "VERSION", "I", null, 1).visitEnd();
+cw.visitField(Opcodes.ACC_PUBLIC + Opcodes.ACC_FINAL + Opcodes.ACC_STATIC, "bar", "Ljava/lang/String;", null, "bar").visitEnd();
+// visitEnd 表示调用结束
+cw.visitEnd();
+
+byte[] bytes = cw.toByteArray();
+FileOutputStream fos = new FileOutputStream("Foo.class");
+fos.write(bytes);
+
+```
+
+
+生成的字节码：
+
+![](https://image-1302577725.cos.ap-beijing.myqcloud.com/uPic/image.png)
+
+这里的类型，如 `I` 、`Ljava/lang/String;` 等是基于JVM的类型描述符，详细对应关系可参考： [类型描述符](https://www.wolai.com/atTjnspsTPSpaBrAT7Jc9Q)。
+
+最后，关于`ClassWriter` 的可选参数，见：[MethodVisitor](https://www.wolai.com/9r9z1BewGZmeRbbLvd6DEM)。
+
+# Adapter
+
+这里引入了一个新角色 `Adapter` ，在使用 `ASM` 动态修改字节码的时候，通常遵循的调用过程是下面这样的：
+
+```纯文本
+ClassReader -->  Adapter --> ClassWriter
+```
+
+
+Reader负责读取解析类的信息，Writer负责生成字节码，`Adapter` 在 Reader 和 Writer 之间充当了“过滤”的作用，也就是定义**我们如何动态修改字节码逻辑的地方。** `Adapter` 要继承 `ClassVisitor` ，在访问者模式中它也充当着拜访者的角色。
+
+我们要完成上面的 Reader → Adapter → Writer的链式调用，基本应该遵循的代码结构如下：
+
+```java
+// 最初的字节码b1
+byte b1 = ...;
+
+ClassWriter cw = new ClassWriter(0);
+ClassVisitor adapter = new ClassVisitor(Opcodes.ASM5， cw) {...};
+ClassReader cr = new ClassReader(b1);
+cr.accept(adapter, 0)
+// 动态生成的字节码b2
+byte[] b2 = cw.toByteArray();
+```
+
+
+`adapter` 的成员变量 `cv` 被赋值为 `ClassWriter` ，所以在执行 `cr.accept` 之后，会按照这样的顺序执行`visitXXX`* * 方法：
+
+```纯文本
+accept --> adapter.visitXXX  --> super.visitXXX 即 cw.visitXXX
+```
+
+
+在时序图中，看起来是这样的：
+
+![](https://image-1302577725.cos.ap-beijing.myqcloud.com/uPic/image_1.png)
+
+之前动态生成了一个字节码文件Foo，其中有两个成员变量 `VERSION` 和 `bar` ，我们尝试自定义一个 Adapter将`bar` 这个成员变量移除：
+
+```java
+public class D3 {
+    public static void main(String[] args) throws Exception {
+        ClassReader cr = new ClassReader(new FileInputStream("Foo.class"));
+        ClassWriter cw = new ClassWriter(0);
+        ClassVisitor adapter = new ClassVisitor(Opcodes.ASM5, cw) {
+            @Override
+            public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
+                // 捕获到了访问成员变量bar的事件
+                if (name.equals("bar") && desc.equals("Ljava/lang/String;")) {
+                    // 直接返回null，不让ClassWriter把这部分信息写入字节码
+                    return null;
+                }
+                return super.visitField(access, name, desc, signature, value);
+            }
+        };
+        cr.accept(adapter, 0);
+
+        byte[] bytes = cw.toByteArray();
+        FileOutputStream fos = new FileOutputStream("Foo.class");
+        fos.write(bytes);
+        fos.close();
+    }
+}
+```
+
+
+再来看重新生成的字节码文件：
+
+![](https://image-1302577725.cos.ap-beijing.myqcloud.com/uPic/image_2.png)
+
