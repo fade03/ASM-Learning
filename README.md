@@ -3,4 +3,7 @@
 
 笔记：
 - [基本API](note/1.基本API.md)
-- [Method API](note/Method%20API.md)
+- [Method API](note/2.Method%20API.md)
+- [工具API](note/3.工具API.md)
+- [基本使用](note/4.基本使用.md)
+- [JVM基础知识](note/5.JVM基础知识.md)
