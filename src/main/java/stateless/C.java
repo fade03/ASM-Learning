@@ -1,4 +1,4 @@
-package st;
+package stateless;
 
 public class C {
     public void m() throws Exception {

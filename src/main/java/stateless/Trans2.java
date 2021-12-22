@@ -1,4 +1,4 @@
-package st;
+package stateless;
 
 import jdk.internal.org.objectweb.asm.*;
 import jdk.internal.org.objectweb.asm.commons.LocalVariablesSorter;
@@ -39,10 +39,10 @@ class AddTimerMethodAdapter extends LocalVariablesSorter implements Opcodes {
             super.visitVarInsn(LLOAD, index);
             // operand stack: System.currentTimMillis - index |
             super.visitInsn(LSUB);
-            super.visitFieldInsn(GETSTATIC, "st/CTrans2", "timer", "J");
+            super.visitFieldInsn(GETSTATIC, "stateless/CTrans2", "timer", "J");
             // timer = timer + (System.currentTimMillis - index)
             super.visitInsn(LADD);
-            super.visitFieldInsn(PUTSTATIC, "st/CTrans2", "timer", "J");
+            super.visitFieldInsn(PUTSTATIC, "stateless/CTrans2", "timer", "J");
         }
         super.visitInsn(opcode);
     }
@@ -58,7 +58,7 @@ public class Trans2 implements Opcodes {
             @Override
             public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
                 // ClassWriter#visit
-                super.visit(version, access, "st/CTrans2", signature, superName, interfaces);
+                super.visit(version, access, "stateless/CTrans2", signature, superName, interfaces);
             }
 
             @Override

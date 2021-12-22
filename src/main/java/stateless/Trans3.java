@@ -1,4 +1,4 @@
-package st;
+package stateless;
 
 import jdk.internal.org.objectweb.asm.*;
 import jdk.internal.org.objectweb.asm.commons.AdviceAdapter;
@@ -19,19 +19,19 @@ class AddTimerMethodAdapter1 extends AdviceAdapter implements Opcodes {
     @Override
     protected void onMethodEnter() {
         // timer = timer - System.currentTimeMillis
-        getStatic(Type.getType("st/CTrans3"), "timer", Type.LONG_TYPE);
+        getStatic(Type.getType("stateless/CTrans3"), "timer", Type.LONG_TYPE);
         invokeStatic(Type.getType(System.class), Method.getMethod("long currentTimeMillis()"));
         visitInsn(LSUB);
-        putStatic(Type.getType("st/CTrans3"), "timer", Type.LONG_TYPE);
+        putStatic(Type.getType("stateless/CTrans3"), "timer", Type.LONG_TYPE);
     }
 
     @Override
     protected void onMethodExit(int opcode) {
         // timer = timer + System.currentTimeMillis
-        getStatic(Type.getType("st/CTrans3"), "timer", Type.LONG_TYPE);
+        getStatic(Type.getType("stateless/CTrans3"), "timer", Type.LONG_TYPE);
         invokeStatic(Type.getType(System.class), Method.getMethod("long currentTimeMillis()"));
         visitInsn(LADD);
-        putStatic(Type.getType("st/CTrans3"), "timer", Type.LONG_TYPE);
+        putStatic(Type.getType("stateless/CTrans3"), "timer", Type.LONG_TYPE);
     }
 }
 
@@ -45,7 +45,7 @@ public class Trans3 implements Opcodes {
 
             @Override
             public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-                super.visit(version, access, "st/CTrans3", signature, superName, interfaces);
+                super.visit(version, access, "stateless/CTrans3", signature, superName, interfaces);
             }
 
             @Override
